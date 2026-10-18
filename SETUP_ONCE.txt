@@ -1,0 +1,18 @@
+ONE-TIME SETUP (Command Prompt)
+
+1) Python libraries:
+     python -m pip install pandas numpy openpyxl python-pptx
+
+2) For the PowerPoint decks only (district + monthly review):
+     - Install Node.js (LTS) from https://nodejs.org   (accept defaults, then CLOSE and reopen Command Prompt)
+     - then:  npm install -g pptxgenjs
+
+3) Put ALL files from this folder in C:\TB_SCRIPT
+
+4) Test:
+     cd C:\TB_SCRIPT
+     python daily_master.py dtc            (one quick job first)
+     python daily_master.py                (everything)
+
+Results: <data folder>\OUTPUT\<today's date>\
+Log:     C:\TB_SCRIPT\daily_master_log.txt
