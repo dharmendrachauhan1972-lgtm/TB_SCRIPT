@@ -8,6 +8,7 @@ ASOF=pd.Timestamp(sys.argv[3]) if len(sys.argv)>3 else pd.Timestamp.today().norm
 def nz(s):
     s=str(s).strip().title()
     return {'Lunavada':'Lunawada','(Non Functional) Kadana':'Lunawada'}.get(s,s)
+CUT25=ASOF-pd.DateOffset(years=1)   # same-period comparison with last year (works for a part-month)
 R={'asof':str(ASOF.date())}
 def rd(f,sh,**k): return pd.read_excel(P(f),sheet_name=sh,**k)
 
@@ -56,9 +57,9 @@ for k,d in (('diag',dg),('enrol',en)):
     N[k]={}
     for t in T+['District']:
         g=d if t=='District' else d[d.tal==t]
-        N[k][t]={'m26':[int(((g.y==2026)&(g.m==m)).sum()) for m in range(1,13)],'ytd25':int(((g.y==2025)&(g.m<=9)).sum()),
+        N[k][t]={'m26':[int(((g.y==2026)&(g.m==m)).sum()) for m in range(1,13)],'ytd25':int(((g.y==2025)&(g['dt']<=CUT25)).sum()),
           'pub26':int(((g.y==2026)&(g.type=='Public')).sum()),'prv26':int(((g.y==2026)&(g.type=='Private')).sum()),
-          'pub25ytd':int(((g.y==2025)&(g.m<=9)&(g.type=='Public')).sum()),'prv25ytd':int(((g.y==2025)&(g.m<=9)&(g.type=='Private')).sum()),
+          'pub25ytd':int(((g.y==2025)&(g['dt']<=CUT25)&(g.type=='Public')).sum()),'prv25ytd':int(((g.y==2025)&(g['dt']<=CUT25)&(g.type=='Private')).sum()),
           'pubm':[int(((g.y==2026)&(g.m==m)&(g.type=='Public')).sum()) for m in range(1,13)],'prvm':[int(((g.y==2026)&(g.m==m)&(g.type=='Private')).sum()) for m in range(1,13)]}
 N['target_annual']={t:ntm[t]*12 for t in T}; N['target_month']=ntm
 a=dg[dg.y==2026][['Episode_ID','tal','type']].merge(en[en.y==2026][['Episode_ID','tal','type']],on='Episode_ID',suffixes=('_d','_e'))
@@ -116,7 +117,7 @@ ok=pt[pt.Treatment_Outcome.isin(['CURED','TREATMENT_COMPLETE'])].copy()
 R['ptfu_moc']=pt['PTFU.MonthOfCohort'].astype(str).value_counts().head(8).to_dict()
 mc=ok['PTFU.MonthOfCohort'].astype(str).str.extract(r'(\d+)')[0]; ok['moc']=pd.to_numeric(mc,errors='coerce'); ok['resp']=ok['PTFU.Response'].notna()
 PT={}
-for mm in ['Jun-26','Jul-26','Aug-26','Sep-26']:
+for mm in [(pd.Period(ASOF,'M')-k).strftime('%b-%y') for k in (3,2,1,0)]:   # latest 4 months up to the as-of month
     R_=pd.Period(pd.to_datetime('01-'+mm,format='%d-%b-%y'),'M'); rowsd={}
     for t in T+['District']:
         den=set(); num=set()
@@ -137,7 +138,7 @@ tm={'baseline':'Baseline','followUp1stMonth':'1st FU','followUp2ndMonth':'2nd FU
 da['t']=da['Assessment Type'].map(tm); doneset={k:set(g.PatientId) for k,g in da.dropna(subset=['t']).groupby('t')}
 fus=['Baseline','1st FU','2nd FU','3rd FU','4th FU','5th FU','6th FU']; off_={'Baseline':0,'1st FU':56,'2nd FU':84,'3rd FU':112,'4th FU':140,'5th FU':168,'6th FU':196}
 DT={}
-for mi,mn in enumerate(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']):
+for mi,mn in enumerate(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][:ASOF.month]):
     S=pd.Timestamp(2026,mi+1,1); E=S+pd.offsets.MonthEnd(0); DT[mn]={}
     for t in T+['District']:
         row=[]
@@ -160,7 +161,7 @@ tp['prv']=tp.Spectrum_Modified_Diagnosing_facility_type.astype(str).str.upper().
 def tpt(g):
     pts=g.Episode_ID.nunique(); zc=int((g.groupby('Episode_ID').has.any()==False).sum()); con=int(g.has.sum()); gv=int(g.given.sum()); return [pts,zc,con,gv]
 TP={t:tpt(tp[tp.tal==t]) for t in T}; TP['Mahisagar Total']=tpt(tp); TP['All - Public']=tpt(tp[~tp.prv]); TP['All - Private']=tpt(tp[tp.prv])
-TP['monthly']=[tpt(tp[tp.m==m]) for m in range(1,10)]; TP['tal_month']={t:[tpt(tp[(tp.tal==t)&(tp.m==m)]) for m in range(1,10)] for t in T}
+TP['monthly']=[tpt(tp[tp.m==m]) for m in range(1,ASOF.month+1)]; TP['tal_month']={t:[tpt(tp[(tp.tal==t)&(tp.m==m)]) for m in range(1,ASOF.month+1)] for t in T}
 R['tpt']=TP
 print('G done',flush=True)
 

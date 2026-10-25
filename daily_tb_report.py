@@ -32,6 +32,8 @@ DATA_FOLDER = os.environ.get("TB_DATA_FOLDER") or r"C:\Users\ADMIN\OneDrive\Desk
 
 # Business rule from your skill: Kadana has no private facilities,
 # so its private-sector patients are counted under Lunawada.
+MAKE_PPT = False   # True = also build the small TB_Daily_Report PowerPoint (switched off: not needed)
+
 NONFUNCTIONAL_TALUKA = "KADANA"
 REASSIGN_TO = "LUNAWADA"
 REASSIGN_SECTOR = "Private"
@@ -284,6 +286,7 @@ def main():
     log(f"HF register : {os.path.relpath(hf_path, DATA_FOLDER)}")
 
     results = []
+    built = 0
     for cfg in REPORTS:
         reg_path = find_latest(FILE_KEYWORDS[cfg["key"]])
         if not reg_path:
@@ -311,17 +314,20 @@ def main():
             log(f"ERROR building Excel for {cfg['key']}:\n{proc.stderr}")
             continue
         log(f"  Excel saved: {out_xlsx}")
+        built += 1
 
-        counts, total = count_by_taluka(cfg, reg_path)
-        results.append({"cfg": cfg, "counts": counts, "total": total})
+        if MAKE_PPT:
+            counts, total = count_by_taluka(cfg, reg_path)
+            results.append({"cfg": cfg, "counts": counts, "total": total})
 
-    if not results:
+    if not built:
         log("Nothing was built.")
         return 1
 
-    ppt_path = os.path.join(day_folder, f"TB_Daily_Report_{datetime.now():%d-%m-%Y}.pptx")
-    build_ppt(results, ppt_path)
-    log(f"PPT saved: {ppt_path}")
+    if MAKE_PPT and results:
+        ppt_path = os.path.join(day_folder, f"TB_Daily_Report_{datetime.now():%d-%m-%Y}.pptx")
+        build_ppt(results, ppt_path)
+        log(f"PPT saved: {ppt_path}")
     return 0
 
 

@@ -35,6 +35,7 @@ DATA_FOLDER = os.environ.get("TB_DATA_FOLDER") or r"C:\Users\ADMIN\OneDrive\Desk
 FILES = {
     "notification": "NOTIFICATION.xlsx",
     "tpt": "tb preventve therapy master.xlsx",
+    "tpt_register": "TPT REGISTER.xlsx",   # optional: adds the month-wise TPT REGISTER sheet to the TPT report
     "ptfu": "PTFU CUMULATVE.xlsx",
     "dtc": "DTC CUMULATIVE.xlsx",
 }
@@ -181,9 +182,15 @@ def job_taluka():
 def job_tpt():
     src = need("tpt")
     last = calendar.monthrange(TODAY.year, TODAY.month)[1]
-    ok, txt = run([sys.executable, script("build_tpt_report.py"), "--input", src,
-                   "--start", f"{TODAY.year}-01-01", "--end", f"{TODAY.year}-{TODAY.month:02d}-{last:02d}",
-                   "--outdir", OUT_DIR])
+    cmd = [sys.executable, script("build_tpt_report.py"), "--input", src,
+           "--start", f"{TODAY.year}-01-01", "--end", f"{TODAY.year}-{TODAY.month:02d}-{last:02d}",
+           "--outdir", OUT_DIR]
+    reg = find_input(FILES["tpt_register"])
+    if reg:
+        cmd += ["--register", reg]
+    else:
+        log('      (TPT REGISTER file not found - the month-wise register sheet is skipped)')
+    ok, txt = run(cmd)
     if not ok:
         raise RuntimeError(txt)
     return f"saved in {OUT_DIR}"
@@ -210,10 +217,8 @@ def job_ptfu():
 
 def job_dtc():
     src = need("dtc")
-    if TODAY.month == 1:
-        y, last_m = TODAY.year - 1, 12
-    else:
-        y, last_m = TODAY.year, TODAY.month - 1
+    # Jan .. CURRENT month (the current month is partial: data up to the register date)
+    y, last_m = TODAY.year, TODAY.month
     months = ",".join(date(y, m, 1).strftime("%b-%y") for m in range(1, last_m + 1))
     out = os.path.join(OUT_DIR, f"DTC_Report_{y}_Jan_to_{date(y, last_m, 1):%b}.xlsx")
     ok, txt = run([sys.executable, script("build_dtc_report.py"), "--source", src,
